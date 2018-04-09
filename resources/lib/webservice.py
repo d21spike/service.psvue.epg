@@ -99,7 +99,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     temp = stream_url.replace(stream_url.rsplit('/', 1)[-1], temp)
                     last_stream = temp
             master_file += temp + '\n'
-        xbmc.log('New Master File: ' + master_file)
+        #xbmc.log('New Master File: ' + master_file)
 
         ##########################################################################################
         # Request response chunk
@@ -112,16 +112,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         # 302 Found
         # 303 See Other
         # 308 Permanent Redirect
-        self.send_response(308)
+        self.send_response(303)
 
         # Header array for the response, toggle Connection Close or Keep/Alive depending on the reponse code
         headers = {
             'Content-type': 'text/html;charset=utf-8',
             'Connection': 'close',
             'Host': 'media-framework.totsuko.tv',
-            'Location': last_stream,
-            # 'Location': stream_url,
-            'Set-Cookie': 'reqPayload=' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '; Domain=totsuko.tv; Path=/'
+            #'Location': last_stream,
+             'Location': stream_url,
+            'Set-Cookie': 'reqPayload=' + '"' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"' + '; Domain=totsuko.tv; Path=/'
         }
 
         # Loop through the Header Array sending each one individually
@@ -137,7 +137,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         # Write body content to the response
-        self.wfile.write(master_file)
+        #self.wfile.write(master_file)
 
         # Close the server response file
         self.wfile.close()
