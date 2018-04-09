@@ -74,12 +74,16 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         # Extract channel url from request URI
         # channel_url = server.path[(server.path.find('params=') + 15):]
-        channel_url = find(server.path, 'params=', '.m3u8')
-        channel_url = urllib.unquote(channel_url)
-        xbmc.log("Received Channel URL: " + channel_url)
+        #channel_url = find(server.path, 'params=', '.m3u8')
+        #channel_url = urllib.unquote(channel_url)
 
+        from urlparse import urlparse, parse_qs
+        query_components = parse_qs(urlparse(server.path).query)
+        channel_url = query_components["params"]
+        xbmc.log("Received Channel URL: " + channel_url[0])
+        # query_components = { "imsi" : ["Hello"] }
         # Retrieve stream master file url for channel
-        stream_url = epg_get_stream(channel_url)
+        stream_url = epg_get_stream(channel_url[0])
         xbmc.log("Retrieved Stream URL: " + stream_url)
 
         xbmc.log("Retrieving Master File")
@@ -117,9 +121,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         headers = {
             'Content-type': 'text/html;charset=utf-8',
             'Connection': 'close',
-            'Host': 'media-framework.totsuko.tv',
+            #'Host': 'media-framework.totsuko.tv',
             'Location': last_stream,
-            'Set-Cookie': 'reqPayload=' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '; Domain=totsuko.tv; Path=/'
+            'Set-Cookie': 'reqPayload="' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"; Domain=totsuko.tv; Path=/'
         }
 
         # Loop through the Header Array sending each one individually
