@@ -1,20 +1,14 @@
 import threading
-import thread
 import xbmc, xbmcgui, xbmcaddon
 import requests, urllib
 import cookielib
-import Cookie
 import os
 import sys
-import base64
 import re
-import time
-import traceback
 import socket
 from SocketServer import ThreadingMixIn
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from urlparse import parse_qs
-from urllib import *
 
 ADDON = xbmcaddon.Addon()
 PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
@@ -66,7 +60,7 @@ def find(source, start_str, end_str):
 
 
 class RequestHandler(BaseHTTPRequestHandler):
-    def do_GET(server):
+    def do_GET(self):
         xbmc.log("WebServer: Get request Received")
 
         ##########################################################################################
@@ -74,10 +68,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         ##########################################################################################
 
         # Extract channel url from request URI
-        parameters = parse_qs(server.path[7:])
-        channel_url = urllib.unquote(str(parameters['params'][0]))
-        xbmc.log("Received Channel URL: " + channel_url)
+        if str(self.path)[0:6] == '/psvue':
+            parameters = parse_qs(self.path[7:])
+            channel_url = urllib.unquote(str(parameters['params'][0]))
+            xbmc.log("Received Channel URL: " + channel_url)
 
+            self.pvr_request(channel_url)
+        else:
+            request = self.path
+            self.stream_request(request)
+
+    def pvr_request(self, channel_url):
         # Retrieve stream master file url for channel
         stream_url = epg_get_stream(channel_url)
         xbmc.log("Retrieved Stream URL: " + stream_url)
@@ -111,7 +112,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         # 302 Found
         # 303 See Other
         # 308 Permanent Redirect
-        server.send_response(303)
+        self.send_response(308)
 
         # Header array for the response, toggle Connection Close or Keep/Alive depending on the reponse code
         headers = {
@@ -119,6 +120,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             'Connection': 'close',
             'Host': 'media-framework.totsuko.tv',
             'Location': last_stream,
+            # 'Location': stream_url,
             'Set-Cookie': 'reqPayload=' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '; Domain=totsuko.tv; Path=/'
         }
 
@@ -126,19 +128,27 @@ class RequestHandler(BaseHTTPRequestHandler):
         for key in headers:
             try:
                 value = headers[key]
-                server.send_header(key, value)
+                self.send_header(key, value)
             except Exception, e:
                 xbmc.log(e)
                 pass
 
         # Tells the server the headers are done and the body can be started
-        server.end_headers()
+        self.end_headers()
 
         # Write body content to the response
-        # server.wfile.write(master_file)
+        self.wfile.write(master_file)
 
         # Close the server response file
-        server.wfile.close()
+        self.wfile.close()
+
+    def stream_request(self, request):
+        self.send_response(404)
+
+        self.end_headers()
+        self.wfile.write(request.path + ' NOT FOUND!')
+
+        self.wfile.close()
 
 
 class Server(HTTPServer):
