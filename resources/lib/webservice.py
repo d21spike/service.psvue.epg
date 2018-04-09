@@ -13,6 +13,7 @@ import traceback
 import socket
 from SocketServer import ThreadingMixIn
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+from urlparse import parse_qs
 from urllib import *
 
 ADDON = xbmcaddon.Addon()
@@ -73,9 +74,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         ##########################################################################################
 
         # Extract channel url from request URI
-        # channel_url = server.path[(server.path.find('params=') + 15):]
-        channel_url = find(server.path, 'params=', '.m3u8')
-        channel_url = urllib.unquote(channel_url)
+        parameters = parse_qs(server.path[7:])
+        channel_url = urllib.unquote(str(parameters['params'][0]))
         xbmc.log("Received Channel URL: " + channel_url)
 
         # Retrieve stream master file url for channel
