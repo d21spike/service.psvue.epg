@@ -1,8 +1,10 @@
 from webservice import PSVueWebService
+import subprocess
 import sys
+import xbmcvfs
 import time
 import cookielib
-import os
+import os, re
 import requests, urllib
 from datetime import datetime, timedelta
 import xbmc, xbmcplugin, xbmcgui, xbmcaddon
@@ -14,9 +16,8 @@ UA_ANDROID_TV = 'Mozilla/5.0 (Linux; Android 6.0.1; Hub Build/MHC19J; wv) AppleW
 CHANNEL_URL = 'https://media-framework.totsuko.tv/media-framework/media/v2.1/stream/channel'
 EPG_URL = 'https://epg-service.totsuko.tv/epg_service_sony/service/v2'
 SHOW_URL = 'https://media-framework.totsuko.tv/media-framework/media/v2.1/stream/airing/'
-VERIFY = True
+VERIFY = False
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
 
 if not xbmc.getCondVisibility('System.HasAddon(pvr.iptvsimple)'):
     dialog = xbmcgui.Dialog()
@@ -28,7 +29,7 @@ IPTV_SIMPLE_ADDON = xbmcaddon.Addon('pvr.iptvsimple')
 
 def build_playlist():
     json_source = get_json(EPG_URL + '/browse/items/channels/filter/all/sort/channeltype/offset/0/size/500')
-    m3u_file = open(os.path.join(ADDON_PATH_PROFILE, "playlist.m3u"),"w")
+    m3u_file = open(os.path.join(ADDON_PATH_PROFILE, "playlist.m3u"), "w")
     m3u_file.write("#EXTM3U")
     m3u_file.write("\n")
 
@@ -43,22 +44,23 @@ def build_playlist():
             logo = None
             for image in channel['urls']:
                 if 'width' in image:
+                    xbmc.log(str(image['width']))
                     if image['width'] == 600 or image['width'] == 440:
                         logo = image['src']
                         logo = logo.encode('utf-8')
                         break
-            url = 'http://localhost:' + ADDON.getSetting(id='port')
-            url += '/psvue?params='+urllib.quote(CHANNEL_URL + '/' + channel_id)
-            url += '|User-Agent='
-            url += urllib.quote('Adobe Primetime/1.4 Dalvik/2.1.0 (Linux; U; Android 6.0.1 Build/MOB31H)')
+            url = 'http://127.0.0.1:54321/psvue?params=' + urllib.quote(CHANNEL_URL + '/' + channel_id) + '.m3u8'
+            # url += '|User-Agent=' + urllib.quote(UA_ANDROID_TV)
+            # 'Access-Control-Allow-Origin': 'http://totsuko.tv',
+            url += '|User-Agent=' + 'Adobe Primetime/1.4 Dalvik/2.1.0 (Linux; U; Android 6.0.1 Build/MOB31H)'
 
             m3u_file.write("\n")
-            channel_info = '#EXTINF:-1 tvg-id="'+channel_id+'" tvg-name="' + title + '"'
-            
-            if logo is not None: channel_info += ' tvg-logo="'+logo+'"'
+            channel_info = '#EXTINF:-1 tvg-id="' + channel_id + '" tvg-name="' + title + '"'
+
+            if logo is not None: channel_info += ' tvg-logo="' + logo + '"'
             channel_info += ' group_title="PS Vue",' + title
-            m3u_file.write(channel_info+"\n")
-            m3u_file.write(url+"\n")
+            m3u_file.write(channel_info + "\n")
+            m3u_file.write(url + "\n")
 
             channel_names_str += '<channel id="' + channel_id + '">\n'
             channel_names_str += '    <display-name lang="en">' + title + '</display-name>\n'
@@ -99,7 +101,7 @@ def build_epg():
         percent = int((float(i) / len(channel_ids)) * 100)
         message = "Loading channel " + str(i) + ' of ' + str(len(channel_ids))
         progress.update(percent, message)
-        build_epg_channel(xmltv_file, channel)
+        # build_epg_channel(xmltv_file, channel)
         if xbmc.Monitor().abortRequested(): break
         i += 1
 
@@ -138,28 +140,28 @@ def build_epg_channel(xmltv_file, channel_id):
                 if 'synopsis' in program:
                     desc = program['synopsis']
                     desc = desc.encode('utf-8')
-                #start_time = datetime.strptime(program['airing_date'], DATE_FORMAT)
+                # start_time = datetime.strptime(program['airing_date'], DATE_FORMAT)
                 start_time = string_to_date(program['airing_date'], DATE_FORMAT)
                 start_time = start_time.strftime("%Y%m%d%H%M%S")
-                #stop_time = datetime.strptime(program['expiration_date'], DATE_FORMAT)
+                # stop_time = datetime.strptime(program['expiration_date'], DATE_FORMAT)
                 stop_time = string_to_date(program['expiration_date'], DATE_FORMAT)
                 stop_time = stop_time.strftime("%Y%m%d%H%M%S")
 
-                xmltv_file.write('<programme start="' + start_time + '" stop="' + stop_time + '"  channel="' + channel_id + '">\n')
+                xmltv_file.write(
+                    '<programme start="' + start_time + '" stop="' + stop_time + '"  channel="' + channel_id + '">\n')
                 xmltv_file.write('    <title lang="en">' + title + '</title>\n')
                 xmltv_file.write('    <sub-title lang="en">' + sub_title + '</sub-title>\n')
-                xmltv_file.write('    <desc lang="en">'+desc+'</desc>\n')
+                xmltv_file.write('    <desc lang="en">' + desc + '</desc>\n')
                 for item in program['genres']:
                     genre = item['genre']
                     genre = genre.encode('utf-8')
-                    xmltv_file.write('    <category lang="en">'+genre+'</category>\n')
+                    xmltv_file.write('    <category lang="en">' + genre + '</category>\n')
 
-                xmltv_file.write('    <icon src="'+icon+'"/>\n')
+                xmltv_file.write('    <icon src="' + icon + '"/>\n')
                 xmltv_file.write('</programme>\n')
 
 
 def airings():
-
     """
      POST https://epg-service.totsuko.tv/epg_service_sony/service/v2/airings HTTP/1.1
      Host: epg-service.totsuko.tv
@@ -259,7 +261,7 @@ def get_json(url):
             msg = json_source['header']['error']['message']
         except:
             pass
-        dialog.notification('Error '+str(r.status_code), msg, xbmcgui.NOTIFICATION_INFO, 9000)
+        dialog.notification('Error ' + str(r.status_code), msg, xbmcgui.NOTIFICATION_INFO, 9000)
         sys.exit()
     return r.json()
 
@@ -298,8 +300,7 @@ def check_iptv_setting(id, value):
 
 def check_files():
     build_playlist()
-    if ADDON.getSetting(id='build_epg') == 'true':
-        build_epg()
+    build_epg()
 
 
 class MainService:
@@ -310,25 +311,27 @@ class MainService:
         self.monitor = xbmc.Monitor()
         self.psvuewebservice = PSVueWebService()
         self.psvuewebservice.start()
-        self.last_update = datetime.now()
+        last_update = datetime.now()
         check_files()
-        xbmc.log("PS Vue EPG Update Check. Last Update: "+self.last_update.strftime('%m/%d/%Y %H:%M:%S'), level=xbmc.LOGNOTICE)
+        xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
+                 level=xbmc.LOGNOTICE)
         self.main_loop()
-    
+
     def main_loop(self):
         while not self.monitor.abortRequested():
-        # Sleep/wait for abort for 10 minutes
+            # Sleep/wait for abort for 10 minutes
             if self.monitor.waitForAbort(600):
-            # Abort was requested while waiting. We should exit
+                # Abort was requested while waiting. We should exit
                 break
-            if self.last_update is None or self.last_update < datetime.now() - timedelta(hours=1):
+            if self.last_update < datetime.now() - timedelta(hours=1):
                 check_files()
                 self.last_update = datetime.now()
 
-            xbmc.log("PS Vue EPG Update Check. Last Update: "+self.last_update.strftime('%m/%d/%Y %H:%M:%S'), level=xbmc.LOGNOTICE)
-        
+            xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
+                     level=xbmc.LOGNOTICE)
+
         self.close()
-    
+
     def close(self):
         self.psvuewebservice.stop()
         del self.monitor
