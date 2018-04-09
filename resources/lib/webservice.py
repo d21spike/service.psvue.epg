@@ -99,8 +99,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         headers = {
             'Content-type': 'text/html;charset=utf-8',
             'Connection': 'close',
-            'Host': 'media-framework.totsuko.tv',
-             'Location': stream_url,
+            'Location': stream_url,
             'Set-Cookie': 'reqPayload=' + '"' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"' + '; Domain=totsuko.tv; Path=/'
         }
 
@@ -148,7 +147,7 @@ class ThreadedHTTPServer(ThreadingMixIn, Server):
 class PSVueWebService(threading.Thread):
     httpd = None
     hostname = '127.0.0.1'
-    port = 54321
+    port = ''
 
     def __init__(self):
 

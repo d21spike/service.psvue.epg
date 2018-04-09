@@ -49,7 +49,7 @@ def build_playlist():
                         logo = image['src']
                         logo = logo.encode('utf-8')
                         break
-            url = 'http://127.0.0.1:54321/psvue?params=' + urllib.quote(CHANNEL_URL + '/' + channel_id)
+            url = 'http://127.0.0.1:' + ADDON.getSetting(id='port') + '/psvue?params=' + urllib.quote(CHANNEL_URL + '/' + channel_id)
             url += '|User-Agent=' + 'Adobe Primetime/1.4 Dalvik/2.1.0 (Linux; U; Android 6.0.1 Build/MOB31H)'
             # url += '&reqPayload=' + urllib.quote('"' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"')
 
@@ -310,6 +310,9 @@ class MainService:
         self.monitor = xbmc.Monitor()
         self.psvuewebservice = PSVueWebService()
         self.psvuewebservice.start()
+        if ADDON.getSetting(id='port') == '':
+            xbmc.log("Port was not set, exiting...")
+            sys.exit()
         last_update = datetime.now()
         check_files()
         xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
