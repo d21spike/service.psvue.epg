@@ -50,9 +50,8 @@ def build_playlist():
                         logo = logo.encode('utf-8')
                         break
             url = 'http://127.0.0.1:54321/psvue?params=' + urllib.quote(CHANNEL_URL + '/' + channel_id)
-            # url += '|User-Agent=' + urllib.quote(UA_ANDROID_TV)
-            # 'Access-Control-Allow-Origin': 'http://totsuko.tv',
             url += '|User-Agent=' + 'Adobe Primetime/1.4 Dalvik/2.1.0 (Linux; U; Android 6.0.1 Build/MOB31H)'
+            # url += '&reqPayload=' + urllib.quote('"' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"')
 
             m3u_file.write("\n")
             channel_info = '#EXTINF:-1 tvg-id="' + channel_id + '" tvg-name="' + title + '"'
