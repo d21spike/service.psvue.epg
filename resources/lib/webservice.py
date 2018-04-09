@@ -80,7 +80,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def pvr_request(self, channel_url):
         # Retrieve stream master file url for channel
-        stream_url = epg_get_stream(channel_url)
+        stream_url = epg_get_stream(channel_url[0])
         xbmc.log("Retrieved Stream URL: " + stream_url)
 
         xbmc.log("Retrieving Master File")
@@ -118,7 +118,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         headers = {
             'Content-type': 'text/html;charset=utf-8',
             'Connection': 'close',
-            'Host': 'media-framework.totsuko.tv',
+            #'Host': 'media-framework.totsuko.tv',
             'Location': last_stream,
             # 'Location': stream_url,
             'Set-Cookie': 'reqPayload=' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '; Domain=totsuko.tv; Path=/'
