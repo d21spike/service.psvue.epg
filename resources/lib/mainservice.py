@@ -1,4 +1,7 @@
+import threading
+
 from webservice import PSVueWebService
+from guideservice import BuildGuide
 import subprocess
 import sys
 import xbmcvfs
@@ -298,7 +301,11 @@ def check_iptv_setting(id, value):
 
 def check_files():
     build_playlist()
-    build_epg()
+    # build_epg()
+
+
+def build_guide():
+    xbmc.log("Guide thread started......")
 
 
 class MainService:
@@ -307,13 +314,18 @@ class MainService:
 
     def __init__(self):
         self.monitor = xbmc.Monitor()
+
+        xbmc.log('Calling PSVueWebService to start....')
         self.psvuewebservice = PSVueWebService()
         self.psvuewebservice.start()
-        if ADDON.getSetting(id='port') == '':
-            xbmc.log("Port was not set, exiting...")
-            sys.exit()
+
+        xbmc.log('Calling BuildGuide to start....')
+        self.guideservice = BuildGuide()
+        self.guideservice.start()
+
         last_update = datetime.now()
         check_files()
+
         xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
                  level=xbmc.LOGNOTICE)
         self.main_loop()
@@ -335,4 +347,5 @@ class MainService:
 
     def close(self):
         self.psvuewebservice.stop()
+        self.guideservice.stop()
         del self.monitor
