@@ -99,8 +99,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         headers = {
             'Content-type': 'text/html;charset=utf-8',
             'Connection': 'close',
+            'Host': 'media-framework.totsuko.tv',
             'Location': stream_url,
-            'Set-Cookie': 'reqPayload=' + '"' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"' + '; Domain=totsuko.tv; Path=/'
+            'Set-Cookie': 'reqPayload=' + '"' + PS_VUE_ADDON.getSetting(id='EPGreqPayload') + '"' +
+                          '; Domain=totsuko.tv; Path=/'
         }
 
         # Loop through the Header Array sending each one individually
@@ -108,7 +110,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 value = headers[key]
                 self.send_header(key, value)
-            except Exception, e:
+            except Exception as e:
                 xbmc.log(e)
                 pass
 
@@ -159,26 +161,26 @@ class PSVueWebService(threading.Thread):
         else:
             self.port = ADDON.getSetting(id='port')
 
-        if self.httpd == None:
+        if self.httpd is None:
             socket.setdefaulttimeout(10)
             server_class = ThreadedHTTPServer
             xbmc.log('Initialized WebServer Hostname | Port -> ' + self.hostname + ' | ' + str(self.port))
             self.httpd = server_class((self.hostname, int(self.port)), RequestHandler)
-        else:
-            self.httpd.handle_request()
 
         threading.Thread.__init__(self)
 
     def run(self):
-        xbmc.log("WebServer Started - %s:%s" % (self.hostname, self.port))
-        self.httpd.serve_forever()
-        self.httpd.handle_request()
+        try:
+            self.httpd.serve_forever()
+        except Exception as e:
+            xbmc.log('Web Server unable to server: ' + str(e))
 
     def stop(self):
         try:
             self.httpd.server_close()
             xbmc.log("WebServer Stopped %s:%s" % (self.hostname, self.port))
-        except:
+        except Exception as e:
+            xbmc.log(e)
             pass
 
         self.join(0)
