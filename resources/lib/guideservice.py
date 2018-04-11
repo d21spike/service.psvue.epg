@@ -69,7 +69,7 @@ def guide_runner(guide_path, guide_date, guide_timestamp, guide_sequence):
 
     xbmc.log('================================Checking If Current Guide file================================')
     xbmc.log('Guide Timestamp | Today Timestamp: ' + guide_timestamp + ' | ' + today_timestamp + ' -> ' + str(guide_timestamp == today_timestamp))
-    xbmc.log('Hour/Ceiling | Guide Sequence: ' + str(now.hour)+ '/' + str(math.ceil(now.hour / 6.0)) + ' | ' + guide_sequence + ' -> ' + str(math.ceil(now.hour / 6.0) == int(guide_sequence)))
+    xbmc.log('Hour/Ceiling | Guide Sequence: ' + str(now.hour)+ '/' + str(math.ceil(now.hour / 6.0) - 4) + ' | ' + guide_sequence + ' -> ' + str(math.ceil(now.hour / 6.0) == int(guide_sequence)))
     xbmc.log('File ' + guide_file + ' Exists: ' + str(os.path.exists(guide_path + guide_file)))
 
     if guide_timestamp == today_timestamp and math.ceil(now.hour / 6.0) == int(guide_sequence) \
@@ -103,13 +103,9 @@ def build_guide_file(xmltv_file, guide_sequence, guide_date):
         'Referer': 'https://vue.playstation.com/watch/guide'
     }
     
-    # guide_midnight = guide_date.utcnow() + timedelta(hours=(-1 * guide_date.utcnow().hour),
-    #                                             minutes=(-1 * guide_date.utcnow().minute),
-    #                                             seconds=(-1 * guide_date.utcnow().second))
-
-    dt = date.today()
-    guide_midnight = datetime.combine(dt, datetime.min.time())
-
+    guide_midnight = guide_date.utcnow() + timedelta(hours=(-1 * guide_date.utcnow().hour),
+                                                 minutes=(-1 * guide_date.utcnow().minute),
+                                                 seconds=(-1 * guide_date.utcnow().second))
     guide_start = guide_midnight + timedelta(hours=((int(guide_sequence) - 1) * 6))
     guide_end = guide_midnight + timedelta(hours=(int(guide_sequence) * 6))
     payload = '{"start":"' + guide_start.strftime(DATE_FORMAT) + '","end":"' + guide_end.strftime(
@@ -203,7 +199,6 @@ def load_cookies():
 
 
 def check_iptv_setting(id, value):
-    #if IPTV_SIMPLE_ADDON.getSetting(id) != value:
     IPTV_SIMPLE_ADDON.setSetting(id=id, value=value)
 
     xbmc.log('BuildGuide: PVR guide updated, toggling IPTV restart')
@@ -240,7 +235,6 @@ def erase_stale_files(guide_path, today_timestamp):
     else:
         if VERBOSE:
             xbmc.log('BuildGuide: Directory is empty, nothing to delete')
-
     return
 
 
@@ -252,8 +246,6 @@ class BuildGuide(threading.Thread):
     guide_thread_3 = None
     guide_thread_4 = None
     keep_running = True
-    up_to_date = False
-
     up_to_date = False
 
     def __init__(self):
@@ -275,7 +267,7 @@ class BuildGuide(threading.Thread):
                 if VERBOSE:
                     xbmc.log('BuildGuide: Looping through guide days....')
                 for guide_day in range(0, self.guide_days):
-                    guide_date = now + timedelta(guide_day)
+                    guide_date = now + timedelta(days=guide_day)
                     guide_timestamp = str(guide_date.year) + str(guide_date.month).zfill(2) + str(guide_date.day).zfill(2)
 
                     self.guide_thread_1 = threading.Thread(name='GuideThread',
@@ -302,10 +294,8 @@ class BuildGuide(threading.Thread):
 
                 if VERBOSE:
                     xbmc.log('BuildGuide: Guide up to date, going idle')
-                    test_sql()
 
                 self.up_to_date = True
-
 
             if now.minute == 0:
                 self.up_to_date = False
