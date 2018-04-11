@@ -331,7 +331,7 @@ class MainService:
     def main_loop(self):
         while not self.monitor.abortRequested():
             # Sleep/wait for abort for 10 minutes
-            if self.monitor.waitForAbort(6):
+            if self.monitor.waitForAbort(600):
                 # Abort was requested while waiting. We should exit
                 break
             if self.last_update < datetime.now() - timedelta(hours=1):
