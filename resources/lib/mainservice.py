@@ -47,7 +47,6 @@ def build_playlist():
             logo = None
             for image in channel['urls']:
                 if 'width' in image:
-                    xbmc.log(str(image['width']))
                     if image['width'] == 600 or image['width'] == 440:
                         logo = image['src']
                         logo = logo.encode('utf-8')
@@ -130,7 +129,7 @@ def build_epg_channel(xmltv_file, channel_id):
 
                 title = program['title']
                 title = title.encode('utf-8')
-                xbmc.log(title)
+                #xbmc.log(title)
                 sub_title = ''
 
                 if 'title_sub' in program:
@@ -322,24 +321,24 @@ class MainService:
         self.guideservice = BuildGuide()
         self.guideservice.start()
 
-        last_update = datetime.now()
+        self.last_update = datetime.now()
         check_files()
 
-        xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
+        xbmc.log("PS Vue EPG Update Check. Last Update: " + self.last_update.strftime('%m/%d/%Y %H:%M:%S'),
                  level=xbmc.LOGNOTICE)
         self.main_loop()
 
     def main_loop(self):
         while not self.monitor.abortRequested():
             # Sleep/wait for abort for 10 minutes
-            if self.monitor.waitForAbort(600):
+            if self.monitor.waitForAbort(6):
                 # Abort was requested while waiting. We should exit
                 break
             if self.last_update < datetime.now() - timedelta(hours=1):
                 check_files()
                 self.last_update = datetime.now()
 
-            xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
+            xbmc.log("PS Vue EPG Update Check. Last Update: " + self.last_update.strftime('%m/%d/%Y %H:%M:%S'),
                      level=xbmc.LOGNOTICE)
 
         self.close()
