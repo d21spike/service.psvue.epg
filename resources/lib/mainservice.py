@@ -1,16 +1,15 @@
+import threading
 from webservice import PSVueWebService
-import os
-import sys
-import time
-from datetime import datetime, timedelta
-import cookielib
-import requests
-import urllib
-import xbmc
-import xbmcaddon
-import xbmcgui
 from guideservice import BuildGuide
-from webservice import PSVueWebService
+import subprocess
+import sys
+import xbmcvfs
+import time
+import cookielib
+import os, re
+import requests, urllib
+from datetime import datetime, timedelta
+import xbmc, xbmcplugin, xbmcgui, xbmcaddon
 
 ADDON = xbmcaddon.Addon()
 PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
@@ -47,7 +46,6 @@ def build_playlist():
             logo = None
             for image in channel['urls']:
                 if 'width' in image:
-                    xbmc.log(str(image['width']))
                     if image['width'] == 600 or image['width'] == 440:
                         logo = image['src']
                         logo = logo.encode('utf-8')
@@ -130,7 +128,7 @@ def build_epg_channel(xmltv_file, channel_id):
 
                 title = program['title']
                 title = title.encode('utf-8')
-                xbmc.log(title)
+                #xbmc.log(title)
                 sub_title = ''
 
                 if 'title_sub' in program:
@@ -322,10 +320,10 @@ class MainService:
         self.guideservice = BuildGuide()
         self.guideservice.start()
 
-        last_update = datetime.now()
+        self.last_update = datetime.now()
         check_files()
 
-        xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
+        xbmc.log("PS Vue EPG Update Check. Last Update: " + self.last_update.strftime('%m/%d/%Y %H:%M:%S'),
                  level=xbmc.LOGNOTICE)
         self.main_loop()
 
@@ -339,7 +337,7 @@ class MainService:
                 check_files()
                 self.last_update = datetime.now()
 
-            xbmc.log("PS Vue EPG Update Check. Last Update: " + last_update.strftime('%m/%d/%Y %H:%M:%S'),
+            xbmc.log("PS Vue EPG Update Check. Last Update: " + self.last_update.strftime('%m/%d/%Y %H:%M:%S'),
                      level=xbmc.LOGNOTICE)
 
         self.close()
