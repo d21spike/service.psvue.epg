@@ -1,14 +1,14 @@
 import threading
 import xbmc, xbmcgui, xbmcaddon
 import os
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 import time
 import glob
 import requests
 import sys
 import cookielib
 import math
-
+from shutil import copyfile
 
 ADDON = xbmcaddon.Addon()
 PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
@@ -68,26 +68,28 @@ def guide_runner(guide_path, guide_date, guide_timestamp, guide_sequence):
     today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
 
     xbmc.log('================================Checking If Current Guide file================================')
-    xbmc.log('Guide Timestamp | Today Timestamp: ' + guide_timestamp + ' | ' + today_timestamp + ' -> ' + str(guide_timestamp == today_timestamp))
-    xbmc.log('Hour/Ceiling | Guide Sequence: ' + str(now.hour)+ '/' + str(math.ceil(now.hour / 6.0) - 4) + ' | ' + guide_sequence + ' -> ' + str(math.ceil(now.hour / 6.0) == int(guide_sequence)))
+    xbmc.log('Guide Timestamp | Today Timestamp: ' + guide_timestamp + ' | ' + today_timestamp + ' -> ' + str(
+        guide_timestamp == today_timestamp))
+    xbmc.log('Hour/Ceiling | Guide Sequence: ' + str(now.hour) + '/' + str(
+        math.ceil(now.hour / 6.0) - 4) + ' | ' + guide_sequence + ' -> ' + str(
+        math.ceil(now.hour / 6.0) == int(guide_sequence)))
     xbmc.log('File ' + guide_file + ' Exists: ' + str(os.path.exists(guide_path + guide_file)))
 
-    if guide_timestamp == today_timestamp and math.ceil(now.hour / 6.0) == int(guide_sequence) \
-            and os.path.exists(guide_path + guide_file):
-        check_iptv_setting('epgPathType', '0')
-        check_iptv_setting('epgPath', guide_path + guide_file)
 
-        if VERBOSE:
-            xbmc.log('BuildGuide Thread ' + guide_sequence + ': Applied guide file -> ' + guide_file)
+
+    # if guide_timestamp == today_timestamp and math.ceil(now.hour / 6.0) == int(guide_sequence) \
+    #         and os.path.exists(guide_path + guide_file):
+    # master_file = guide_path + 'epg_master.xml'
+    # copyfile(guide_path + guide_file, master_file)
+    # check_iptv_setting('epgPathType', '0')
+    # check_iptv_setting('epgPath', master_file)
+
+    # if VERBOSE:
+    #    xbmc.log('BuildGuide Thread ' + guide_sequence + ': Applied guide file -> ' + guide_file)
 
 
 def build_guide_file(xmltv_file, guide_sequence, guide_date):
     channel_ids = PS_VUE_ADDON.getSetting('channelIDs')
-    channel_names_xml = PS_VUE_ADDON.getSetting('channelNamesXML')
-
-    xmltv_file.write('<?xml version="1.0" encoding="utf-8" ?>\n')
-    xmltv_file.write("<tv>\n")
-    xmltv_file.write(channel_names_xml)
 
     url = 'https://epg-service.totsuko.tv/epg_service_sony/service/v2/airings'
     headers = {
@@ -102,32 +104,32 @@ def build_guide_file(xmltv_file, guide_sequence, guide_date):
         'Content-Type': 'application/json',
         'Referer': 'https://vue.playstation.com/watch/guide'
     }
-    
+
     guide_midnight = guide_date.utcnow() + timedelta(hours=(-1 * guide_date.utcnow().hour),
-                                                 minutes=(-1 * guide_date.utcnow().minute),
-                                                 seconds=(-1 * guide_date.utcnow().second))
+                                                     minutes=(-1 * guide_date.utcnow().minute),
+                                                     seconds=(-1 * guide_date.utcnow().second))
     guide_start = guide_midnight + timedelta(hours=((int(guide_sequence) - 1) * 6))
     guide_end = guide_midnight + timedelta(hours=(int(guide_sequence) * 6))
     payload = '{"start":"' + guide_start.strftime(DATE_FORMAT) + '","end":"' + guide_end.strftime(
         DATE_FORMAT) + '","channel_ids":[' + channel_ids + ']}'
-    xbmc.log('BuildGuide Payload (Thread '+guide_sequence+'): ' + str(guide_start) + ' | ' + str(guide_end))
-    xbmc.log('BuildGuide TimeDelta (Thread ' + guide_sequence + '): ' + str(((int(guide_sequence) - 1) * 6)) + ' | ' + str((int(guide_sequence) * 6)))
+    xbmc.log('BuildGuide Payload (Thread ' + guide_sequence + '): ' + str(guide_start) + ' | ' + str(guide_end))
+    xbmc.log(
+        'BuildGuide TimeDelta (Thread ' + guide_sequence + '): ' + str(((int(guide_sequence) - 1) * 6)) + ' | ' + str(
+            (int(guide_sequence) * 6)))
 
     r = requests.post(url, headers=headers, cookies=load_cookies(), data=payload, verify=VERIFY)
 
     for program in r.json()['body']['airings']:
         build_epg_channel(xmltv_file, program)
 
-    xmltv_file.write('</tv>\n')
-
 
 def build_epg_channel(xmltv_file, program):
     channel_id = str(program['channel_id'])
-    title = program['title']
+    title = program['title'].replace('&', 'and')
     title = title.encode('utf-8')
     sub_title = ''
     if 'title_sub' in program:
-        sub_title = program['title_sub']
+        sub_title = program['title_sub'].replace('&', 'and')
         sub_title = sub_title.encode('utf-8')
     desc = ''
 
@@ -141,9 +143,9 @@ def build_epg_channel(xmltv_file, program):
     stop_time = stop_time.strftime("%Y%m%d%H%M%S")
 
     xmltv_file.write('<programme start="' + start_time + '" stop="' + stop_time + '" channel="' + channel_id + '">\n')
-    xmltv_file.write('    <title lang="en">' + title + '</title>\n')
-    xmltv_file.write('    <sub-title lang="en">' + sub_title + '</sub-title>\n')
-    xmltv_file.write('    <desc lang="en">' + desc + '</desc>\n')
+    xmltv_file.write('    <title lang="en">' + title.replace('&', 'and') + '</title>\n')
+    xmltv_file.write('    <sub-title lang="en">' + sub_title.replace('&', 'and') + '</sub-title>\n')
+    xmltv_file.write('    <desc lang="en">' + desc.replace('&', 'and') + '</desc>\n')
     if 'genres' in program:
         for item in program['genres']:
             genre = item['genre']
@@ -238,8 +240,48 @@ def erase_stale_files(guide_path, today_timestamp):
     return
 
 
+def build_master_file(guide_path):
+    xbmc.log('BuildGuide: Building master file...')
+
+    now = datetime.now()
+    today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+
+    channel_names_xml = PS_VUE_ADDON.getSetting('channelNamesXML')
+    master_file = open(guide_path + 'epg_master_temp.xml', 'w')
+
+    master_file.write('<?xml version="1.0" encoding="utf-8" ?>\n')
+    master_file.write("<tv>\n")
+    master_file.write(channel_names_xml)
+
+    files = glob.glob(guide_path + '*.xml')
+    if files:
+        for file_path in files:
+            try:
+                file_name = file_path.rsplit('\\', 1)[1]
+                if 'master' not in file_name:
+                    file = open(file_path)
+                    for line in file:
+                        line = str(line)
+                        master_file.write(line)
+                else:
+                    xbmc.log('BuildGuide: Skipping master file -> ' + file_name)
+
+            except Exception as e:
+                if VERBOSE:
+                    xbmc.log('BuildGuide: failed to retrieve file for checking: ' + str(e))
+
+        master_file.write('</tv>')
+        master_file.close()
+        copyfile(guide_path + 'epg_master_temp.xml', guide_path + 'epg_' + today_timestamp + '_master.xml')
+        xbmc.log('BuildGuide: Master file built.')
+
+        IPTV_SIMPLE_ADDON.setSetting(id='epgPath', value=(guide_path + 'epg_' + today_timestamp + '_master.xml'))
+        xbmc.log('BuildGuide: PVR guide updated, toggling IPTV restart')
+        xbmc.executebuiltin('StartPVRManager')
+
+
 class BuildGuide(threading.Thread):
-    guide_days = 3
+    guide_days = 1
     guide_path = os.path.join(ADDON_PATH_PROFILE, "epg" + "\\")
     guide_thread_1 = None
     guide_thread_2 = None
@@ -268,19 +310,24 @@ class BuildGuide(threading.Thread):
                     xbmc.log('BuildGuide: Looping through guide days....')
                 for guide_day in range(0, self.guide_days):
                     guide_date = now + timedelta(days=guide_day)
-                    guide_timestamp = str(guide_date.year) + str(guide_date.month).zfill(2) + str(guide_date.day).zfill(2)
+                    guide_timestamp = str(guide_date.year) + str(guide_date.month).zfill(2) + str(guide_date.day).zfill(
+                        2)
 
                     self.guide_thread_1 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(self.guide_path, guide_date, guide_timestamp,
+                                                           target=guide_runner(self.guide_path, guide_date,
+                                                                               guide_timestamp,
                                                                                '1'))
                     self.guide_thread_2 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(self.guide_path, guide_date, guide_timestamp,
+                                                           target=guide_runner(self.guide_path, guide_date,
+                                                                               guide_timestamp,
                                                                                '2'))
                     self.guide_thread_3 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(self.guide_path, guide_date, guide_timestamp,
+                                                           target=guide_runner(self.guide_path, guide_date,
+                                                                               guide_timestamp,
                                                                                '3'))
                     self.guide_thread_4 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(self.guide_path, guide_date, guide_timestamp,
+                                                           target=guide_runner(self.guide_path, guide_date,
+                                                                               guide_timestamp,
                                                                                '4'))
 
                     thread_alive = True
@@ -296,6 +343,11 @@ class BuildGuide(threading.Thread):
                     xbmc.log('BuildGuide: Guide up to date, going idle')
 
                 self.up_to_date = True
+
+                now = datetime.now()
+                today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+                if not os.path.exists(self.guide_path + 'epg_' + today_timestamp + '_master.xml'):
+                    build_master_file(self.guide_path)
 
             if now.minute == 0:
                 self.up_to_date = False

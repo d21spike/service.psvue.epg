@@ -1,5 +1,4 @@
 import threading
-
 from webservice import PSVueWebService
 from guideservice import BuildGuide
 import subprocess
