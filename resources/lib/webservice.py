@@ -1,19 +1,8 @@
-import threading
-import xbmc, xbmcgui, xbmcaddon
-import requests, urllib
-import cookielib
-import os
-import sys
-import re
 import socket
 from SocketServer import ThreadingMixIn
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from urlparse import parse_qs
-ADDON = xbmcaddon.Addon()
-PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
-ADDON_PATH_PROFILE = xbmc.translatePath(PS_VUE_ADDON.getAddonInfo('profile'))
-UA_ANDROID_TV = 'Mozilla/5.0 (Linux; Android 6.0.1; Hub Build/MHC19J; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/61.0.3163.98 Safari/537.36'
-VERIFY = False
+from globals import *
 
 
 def load_cookies():

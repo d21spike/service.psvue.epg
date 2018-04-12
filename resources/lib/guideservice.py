@@ -1,26 +1,7 @@
-import threading
-import xbmc, xbmcgui, xbmcaddon
-import os
-from datetime import datetime, timedelta
-import time
 import glob
-import requests
-import sys
-import cookielib
 import math
-from shutil import copyfile
-
-ADDON = xbmcaddon.Addon()
-PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
-ADDON_PATH_PROFILE = xbmc.translatePath(PS_VUE_ADDON.getAddonInfo('profile'))
-UA_ANDROID_TV = 'Mozilla/5.0 (Linux; Android 6.0.1; Hub Build/MHC19J; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/61.0.3163.98 Safari/537.36'
-CHANNEL_URL = 'https://media-framework.totsuko.tv/media-framework/media/v2.1/stream/channel'
-EPG_URL = 'https://epg-service.totsuko.tv/epg_service_sony/service/v2'
-SHOW_URL = 'https://media-framework.totsuko.tv/media-framework/media/v2.1/stream/airing/'
-VERIFY = False
-DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-IPTV_SIMPLE_ADDON = xbmcaddon.Addon('pvr.iptvsimple')
-VERBOSE = True
+import xbmcvfs
+from globals import *
 
 
 def sleep(time, units):
@@ -201,7 +182,8 @@ def load_cookies():
 
 
 def check_iptv_setting(id, value):
-    IPTV_SIMPLE_ADDON.setSetting(id=id, value=value)
+    if IPTV_SIMPLE_ADDON.getSetting(id) != value:
+        IPTV_SIMPLE_ADDON.setSetting(id=id, value=value)
 
     xbmc.log('BuildGuide: PVR guide updated, toggling IPTV restart')
     xbmc.executebuiltin('StartPVRManager')
@@ -272,10 +254,11 @@ def build_master_file(guide_path):
 
         master_file.write('</tv>')
         master_file.close()
-        copyfile(guide_path + 'epg_master_temp.xml', guide_path + 'epg_' + today_timestamp + '_master.xml')
+        xbmcvfs.copy(guide_path + 'epg_master_temp.xml', guide_path + 'epg_' + today_timestamp + '_master.xml')
+        xbmcvfs.copy(guide_path + 'epg_master_temp.xml', os.path.join(ADDON_PATH_PROFILE, 'epg.xml'))
         xbmc.log('BuildGuide: Master file built.')
 
-        IPTV_SIMPLE_ADDON.setSetting(id='epgPath', value=(guide_path + 'epg_' + today_timestamp + '_master.xml'))
+        check_iptv_setting('epgPath', os.path.join(ADDON_PATH_PROFILE, 'epg.xml'))
         xbmc.log('BuildGuide: PVR guide updated, toggling IPTV restart')
         xbmc.executebuiltin('StartPVRManager')
 

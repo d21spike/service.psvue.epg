@@ -1,25 +1,6 @@
-import threading
+from globals import *
 from webservice import PSVueWebService
 from guideservice import BuildGuide
-import subprocess
-import sys
-import xbmcvfs
-import time
-import cookielib
-import os, re
-import requests, urllib
-from datetime import datetime, timedelta
-import xbmc, xbmcplugin, xbmcgui, xbmcaddon
-
-ADDON = xbmcaddon.Addon()
-PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
-ADDON_PATH_PROFILE = xbmc.translatePath(PS_VUE_ADDON.getAddonInfo('profile'))
-UA_ANDROID_TV = 'Mozilla/5.0 (Linux; Android 6.0.1; Hub Build/MHC19J; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/61.0.3163.98 Safari/537.36'
-CHANNEL_URL = 'https://media-framework.totsuko.tv/media-framework/media/v2.1/stream/channel'
-EPG_URL = 'https://epg-service.totsuko.tv/epg_service_sony/service/v2'
-SHOW_URL = 'https://media-framework.totsuko.tv/media-framework/media/v2.1/stream/airing/'
-VERIFY = False
-DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 if not xbmc.getCondVisibility('System.HasAddon(pvr.iptvsimple)'):
     dialog = xbmcgui.Dialog()
