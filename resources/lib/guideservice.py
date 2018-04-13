@@ -1,5 +1,3 @@
-import glob
-import math
 import sqlite3
 import xbmcvfs
 from globals import *
@@ -26,8 +24,12 @@ def find(source, start_str, end_str):
 def guide_runner(guide_date, guide_sequence, db_path):
     db_connection = sqlite3.connect(db_path)
     program_list = build_guide_file(guide_sequence, guide_date)
+    db_connection.executemany('insert into epg (StartTime, EndTime, Channel, Title, SubTitle, Desc, Icon, Genre) values (?,?,?,?,?,?,?,?)', program_list)
+    db_connection.commit()
 
-    db_connection.executemany('insert into epg (StartTime, EndTime, Channel, Title, SubTitle, Desc) values (?,?,?,?,?,?)', program_list)
+    #Use Threads HERE !!!
+    program_list = better_guide()
+    db_connection.executemany('replace into epg (StartTime, EndTime, Channel, Title, SubTitle, Desc, Icon, Genre) values (?,?,?,?,?,?,?,?)', program_list)
     db_connection.commit()
     db_connection.close()
 
@@ -71,23 +73,50 @@ def build_guide_file(guide_sequence, guide_date):
 
 
 def build_epg_channel(program):
-    channel_id = str(program['channel_id'])
+    if 'start' in program:
+        start_time = string_to_date(program['start'], DATE_FORMAT)
+    elif 'airing_date' in program:
+        start_time = string_to_date(program['airing_date'], DATE_FORMAT)
+    start_time = start_time.strftime("%Y%m%d%H%M%S")
+
+    if 'end' in program:
+        stop_time = string_to_date(program['end'], DATE_FORMAT)
+    elif 'expiration_date' in program:
+        stop_time = string_to_date(program['expiration_date'], DATE_FORMAT)
+    stop_time = stop_time.strftime("%Y%m%d%H%M%S")
+
+    if 'channel_id' in program:
+        channel_id = str(program['channel_id'])
+    elif 'channel' in program and 'channel_id' in program['channel']:
+        channel_id = str(program['channel']['channel_id'])
+
     title = program['title']
+
     sub_title = ''
     if 'title_sub' in program:
         sub_title = sub_title
-    desc = ''
 
+    desc = ''
     if 'synopsis' in program:
         desc = program['synopsis']
         desc = desc
 
-    start_time = string_to_date(program['start'], DATE_FORMAT)
-    start_time = start_time.strftime("%Y%m%d%H%M%S")
-    stop_time = string_to_date(program['end'], DATE_FORMAT)
-    stop_time = stop_time.strftime("%Y%m%d%H%M%S")
+    icon = ''
+    if 'urls' in program:
+        for image in program['urls']:
+            if 'width' in image:
+                if image['width'] == 600 or image['width'] == 440:
+                    icon = image['src']
+                    break
 
-    return start_time, stop_time, channel_id, title, sub_title, desc
+    genre = ''
+    if 'genres' in program:
+        for item in program['genres']:
+            if genre != '':
+                genre += ','
+            genre = item['genre']
+
+    return start_time, stop_time, channel_id, title, sub_title, desc, icon, genre
 
 
 def get_json(url):
@@ -144,37 +173,17 @@ def check_iptv_setting(id, value):
     xbmc.executebuiltin('StartPVRManager')
 
 
-def erase_stale_files(guide_path, today_timestamp):
-    if VERBOSE:
-        xbmc.log('BuildGuide: Inside ' + guide_path + '\nwill delete anything older than ' + today_timestamp)
+def better_guide():
+    channel_ids = PS_VUE_ADDON.getSetting('channelIDs').split(',')
+    programs_list = []
+    for channel in channel_ids:
+        json_source = get_json(EPG_URL + '/timeline/live/' + channel + '/watch_history_size/0/coming_up_size/50')
+        for strand in json_source['body']['strands']:
+            if strand['id'] == 'now_playing' or strand['id'] == 'coming_up':
+                for program in strand['programs']:
+                    programs_list.append(build_epg_channel(program))
 
-    files = glob.glob(os.path.join(guide_path, '*.xml'))
-
-    if files:
-        for file_path in files:
-            try:
-                file = file_path.rsplit('\\', 1)[1]
-                file_timestamp = find(file, 'epg_', '_')
-                if file_timestamp < today_timestamp:
-                    if VERBOSE:
-                        xbmc.log('BuildGuide: ' + file + ' is older than ' + today_timestamp + ', will delete...')
-                    try:
-                        os.remove(file_path)
-                    except Exception as e:
-                        if VERBOSE:
-                            xbmc.log('BuildGuide: Failed to delete old guide file -> ' + file_path + '\nException:' + e)
-                else:
-                    if VERBOSE:
-                        xbmc.log('BuildGuide: ' + file + ' is current, ignoring.')
-
-            except Exception as e:
-                if VERBOSE:
-                    xbmc.log('BuildGuide: failed to retrieve file for checking: ' + str(e))
-
-    else:
-        if VERBOSE:
-            xbmc.log('BuildGuide: Directory is empty, nothing to delete')
-    return
+    return programs_list
 
 
 def build_master_file(db_path, guide_path):
@@ -202,13 +211,22 @@ def build_master_file(db_path, guide_path):
         title = row[3]
         sub_title = row[4]
         desc = row[5]
-        line = ''
-        line += '<programme start="' + start_time + '" stop="' + stop_time + '" channel="' + channel_id + '">\n'
-        line += '    <title lang="en">' + title.encode('utf-8') + '</title>\n'
-        line += '    <sub-title lang="en">' + sub_title.encode('utf-8') + '</sub-title>\n'
-        line += '    <desc lang="en">' + desc.encode('utf-8') + '</desc>\n'
-        line += '</programme>\n'
-        master_file.write(line)
+        icon = row[6]
+        genres = row[7]
+        genres = genres.split(',')
+
+        prg = ''
+        prg += '<programme start="' + start_time + '" stop="' + stop_time + '" channel="' + channel_id + '">\n'
+        prg += '    <title lang="en">' + title.encode('utf-8') + '</title>\n'
+        prg += '    <sub-title lang="en">' + sub_title.encode('utf-8') + '</sub-title>\n'
+        prg += '    <desc lang="en">' + desc.encode('utf-8') + '</desc>\n'
+        for item in genres:
+            genre = item.encode('utf-8')
+            prg += '    <category lang="en">' + genre.encode('utf-8') + '</category>\n'
+        prg +='    <icon src="' + icon.encode('utf-8') + '"/>\n'
+        prg += '</programme>\n'
+
+        master_file.write(prg)
 
     master_file.write('</tv>')
     master_file.close()
@@ -235,7 +253,9 @@ def init_db(db_path):
     sql += 'Channel integer,'
     sql += 'Title text,'
     sql += 'SubTitle text,'
-    sql += 'Desc text'
+    sql += 'Desc text,'
+    sql += 'Icon text,'
+    sql += 'Genre text'
     sql += ')'
 
     db_connection.execute(sql)
@@ -312,7 +332,7 @@ class BuildGuide(threading.Thread):
                 build_master_file(self.db_path, self.guide_path)
 
             #if now.minute == 0:
-            if self.monitor.waitForAbort(600):
+            if self.monitor.waitForAbort(3600):
                 break
 
             self.up_to_date = False
