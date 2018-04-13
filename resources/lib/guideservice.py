@@ -28,14 +28,14 @@ def guide_runner(guide_path, guide_date, guide_timestamp, guide_sequence):
                  ' | Guide Timestamp: ' + guide_timestamp + ' | ' + guide_sequence)
 
     if not os.path.isdir(guide_path):
-        os.mkdir(guide_path)
+        xbmcvfs.mkdir(guide_path)
 
     guide_file = 'epg_' + guide_timestamp + '_' + guide_sequence + '.xml'
 
-    if not os.path.exists(guide_path + guide_file):
+    if not xbmcvfs.exists(os.path.join(guide_path, guide_file)):
         if VERBOSE:
             xbmc.log('BuildGuide Thread ' + guide_sequence + ': ' + 'Creating guide file: ' + guide_file)
-        file = open(guide_path + guide_file, 'w')
+        file = open(os.path.join(guide_path, guide_file), 'w')
         build_guide_file(file, guide_sequence, guide_date)
         file.close()
 
@@ -45,8 +45,9 @@ def guide_runner(guide_path, guide_date, guide_timestamp, guide_sequence):
         if VERBOSE:
             xbmc.log('BuildGuide Thread ' + guide_sequence + ': ' + 'File ' + guide_file + ' already exists, exiting.')
 
-    now = datetime.now()
-    today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+    #now = datetime.now()
+    #today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+    today_timestamp = datetime.now().strftime('%Y%m%d')
 
     xbmc.log('================================Checking If Current Guide file================================')
     xbmc.log('Guide Timestamp | Today Timestamp: ' + guide_timestamp + ' | ' + today_timestamp + ' -> ' + str(
@@ -54,7 +55,7 @@ def guide_runner(guide_path, guide_date, guide_timestamp, guide_sequence):
     xbmc.log('Hour/Ceiling | Guide Sequence: ' + str(now.hour) + '/' + str(
         math.ceil(now.hour / 6.0) - 4) + ' | ' + guide_sequence + ' -> ' + str(
         math.ceil(now.hour / 6.0) == int(guide_sequence)))
-    xbmc.log('File ' + guide_file + ' Exists: ' + str(os.path.exists(guide_path + guide_file)))
+    xbmc.log('File ' + guide_file + ' Exists: ' + str(os.path.exists(os.path.join(guide_path, guide_file))))
 
 
 
@@ -86,9 +87,9 @@ def build_guide_file(xmltv_file, guide_sequence, guide_date):
         'Referer': 'https://vue.playstation.com/watch/guide'
     }
 
-    guide_midnight = guide_date.utcnow() + timedelta(hours=(-1 * guide_date.utcnow().hour),
-                                                     minutes=(-1 * guide_date.utcnow().minute),
-                                                     seconds=(-1 * guide_date.utcnow().second))
+    guide_midnight = guide_date + timedelta(hours=(-1 * guide_date.hour),
+                                                     minutes=(-1 * guide_date.minute),
+                                                     seconds=(-1 * guide_date.second))
     guide_start = guide_midnight + timedelta(hours=((int(guide_sequence) - 1) * 6))
     guide_end = guide_midnight + timedelta(hours=(int(guide_sequence) * 6))
     payload = '{"start":"' + guide_start.strftime(DATE_FORMAT) + '","end":"' + guide_end.strftime(
@@ -193,7 +194,7 @@ def erase_stale_files(guide_path, today_timestamp):
     if VERBOSE:
         xbmc.log('BuildGuide: Inside ' + guide_path + '\nwill delete anything older than ' + today_timestamp)
 
-    files = glob.glob(guide_path + '*.xml')
+    files = glob.glob(os.path.join(guide_path, '*.xml'))
 
     if files:
         for file_path in files:
@@ -225,22 +226,26 @@ def erase_stale_files(guide_path, today_timestamp):
 def build_master_file(guide_path):
     xbmc.log('BuildGuide: Building master file...')
 
-    now = datetime.now()
-    today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+    #now = datetime.now()
+    #today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+    today_timestamp = datetime.now().strftime('%Y%m%d')
 
     channel_names_xml = PS_VUE_ADDON.getSetting('channelNamesXML')
-    master_file = open(guide_path + 'epg_master_temp.xml', 'w')
+    temp_file = os.path.join(guide_path, 'epg_temp_master.xml')
+    master_file = open(temp_file, 'w')
 
     master_file.write('<?xml version="1.0" encoding="utf-8" ?>\n')
     master_file.write("<tv>\n")
     master_file.write(channel_names_xml)
 
-    files = glob.glob(guide_path + '*.xml')
+    files = sorted(glob.glob(os.path.join(guide_path, '*.xml')))
+    xbmc.log("BuildGuide: Files list: " + str(files))
     if files:
         for file_path in files:
             try:
-                file_name = file_path.rsplit('\\', 1)[1]
-                if 'master' not in file_name:
+                #file_name = file_path.rsplit('\\', 1)[1]
+                #if 'master' not in file_name:
+                if 'master.xml' not in file_name
                     file = open(file_path)
                     for line in file:
                         line = str(line)
@@ -254,8 +259,9 @@ def build_master_file(guide_path):
 
         master_file.write('</tv>')
         master_file.close()
-        xbmcvfs.copy(guide_path + 'epg_master_temp.xml', guide_path + 'epg_' + today_timestamp + '_master.xml')
-        xbmcvfs.copy(guide_path + 'epg_master_temp.xml', os.path.join(ADDON_PATH_PROFILE, 'epg.xml'))
+        xbmcvfs.copy(temp_file, os.path.join(guide_path, 'epg_' + today_timestamp + '_master.xml'))
+        xbmcvfs.copy(temp_file, os.path.join(ADDON_PATH_PROFILE, 'epg.xml'))
+        #xbmcvfs.delete(temp_file)
         xbmc.log('BuildGuide: Master file built.')
 
         check_iptv_setting('epgPath', os.path.join(ADDON_PATH_PROFILE, 'epg.xml'))
@@ -264,14 +270,16 @@ def build_master_file(guide_path):
 
 
 class BuildGuide(threading.Thread):
-    guide_days = 1
-    guide_path = os.path.join(ADDON_PATH_PROFILE, "epg" + "\\")
+    guide_days = int(ADDON.getSetting('epg_days'))
+    #guide_path = os.path.join(ADDON_PATH_PROFILE, "epg" + "\\")
+    guide_path = os.path.join(ADDON_PATH_PROFILE, "epg")
     guide_thread_1 = None
     guide_thread_2 = None
     guide_thread_3 = None
     guide_thread_4 = None
     keep_running = True
     up_to_date = False
+    monitor = xbmc.Monitor()
 
     def __init__(self):
         threading.Thread.__init__(self)
@@ -280,13 +288,16 @@ class BuildGuide(threading.Thread):
         if VERBOSE:
             xbmc.log('BuildGuide: Thread starting....')
 
-        while self.keep_running:
+        #while self.keep_running:
+        while not self.monitor.abortRequested():
             now = datetime.utcnow()
 
-            today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+            #today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+            today_timestamp = datetime.now().strftime('%Y%m%d')
             if not self.up_to_date:
                 if VERBOSE:
                     xbmc.log('BuildGuide: Erasing stale files....')
+                #erase_stale_files(self.guide_path, today_timestamp)
                 erase_stale_files(self.guide_path, today_timestamp)
 
                 if VERBOSE:
@@ -327,13 +338,16 @@ class BuildGuide(threading.Thread):
 
                 self.up_to_date = True
 
-                now = datetime.now()
-                today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
-                if not os.path.exists(self.guide_path + 'epg_' + today_timestamp + '_master.xml'):
+                #now = datetime.now()
+                #today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
+                if not xbmcvfs.exists(os.path.join(self.guide_path, 'epg_' + today_timestamp + '_master.xml')):
                     build_master_file(self.guide_path)
 
-            if now.minute == 0:
-                self.up_to_date = False
+            #if now.minute == 0:
+            if self.monitor.waitForAbort(600):
+                break
+
+            self.up_to_date = False
 
     def stop(self):
         if VERBOSE:
