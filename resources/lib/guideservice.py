@@ -119,60 +119,6 @@ def build_epg_channel(program):
     return start_time, stop_time, channel_id, title, sub_title, desc, icon, genre
 
 
-def get_json(url):
-    headers = {
-        'Accept': '*/*',
-        'reqPayload': PS_VUE_ADDON.getSetting(id='EPGreqPayload'),
-        'User-Agent': UA_ANDROID_TV,
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'X-Requested-With': 'com.snei.vue.android',
-        'Connection': 'keep-alive'
-    }
-
-    r = requests.get(url, headers=headers, cookies=load_cookies(), verify=VERIFY)
-
-    if r.status_code != 200:
-        dialog = xbmcgui.Dialog()
-        msg = 'The request could not be completed.'
-        try:
-            json_source = r.json()
-            msg = json_source['header']['error']['message']
-        except Exception as e:
-            if VERBOSE:
-                xbmc.log('BuildGuide: Exception thrown in get_json -> ' + str(e))
-            pass
-        dialog.notification('Error ' + str(r.status_code), msg, xbmcgui.NOTIFICATION_INFO, 9000)
-        sys.exit()
-    return r.json()
-
-
-def string_to_date(string, date_format):
-    try:
-        date = datetime.strptime(str(string), date_format)
-    except TypeError:
-        date = datetime(*(time.strptime(str(string), date_format)[0:6]))
-    return date
-
-
-def load_cookies():
-    cookie_file = os.path.join(ADDON_PATH_PROFILE, 'cookies.lwp')
-    cj = cookielib.LWPCookieJar()
-    try:
-        cj.load(cookie_file, ignore_discard=True)
-    except:
-        pass
-    return cj
-
-
-def check_iptv_setting(id, value):
-    if IPTV_SIMPLE_ADDON.getSetting(id) != value:
-        IPTV_SIMPLE_ADDON.setSetting(id=id, value=value)
-
-    xbmc.log('BuildGuide: PVR guide updated, toggling IPTV restart')
-    xbmc.executebuiltin('StartPVRManager')
-
-
 def better_guide():
     channel_ids = PS_VUE_ADDON.getSetting('channelIDs').split(',')
     programs_list = []

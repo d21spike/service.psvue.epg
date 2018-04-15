@@ -5,17 +5,6 @@ from urlparse import parse_qs
 from globals import *
 
 
-def load_cookies():
-    cookie_file = os.path.join(ADDON_PATH_PROFILE, 'cookies.lwp')
-    cj = cookielib.LWPCookieJar()
-    try:
-        cj.load(cookie_file, ignore_discard=True)
-    except:
-        pass
-
-    return cj
-
-
 def epg_get_stream(url):
     headers = {
         'Accept': '*/*',
@@ -36,15 +25,6 @@ def epg_get_stream(url):
     stream_url = json_source['body']['video']
 
     return stream_url
-
-
-def find(source, start_str, end_str):
-    start = source.find(start_str)
-    end = source.find(end_str, start + len(start_str))
-    if start != -1:
-        return source[start + len(start_str):end]
-    else:
-        return ''
 
 
 class RequestHandler(BaseHTTPRequestHandler):
