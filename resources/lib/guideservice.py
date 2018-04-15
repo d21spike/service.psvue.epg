@@ -1,3 +1,4 @@
+import math
 import sqlite3
 import xbmcvfs
 from globals import *
@@ -21,20 +22,27 @@ def find(source, start_str, end_str):
         return ''
 
 
-def guide_runner(guide_date, guide_sequence, db_path):
+def main_guide_runner(db_path):
+    xbmc.log("DELETING TABLE...")
     db_connection = sqlite3.connect(db_path)
-    program_list = build_guide_file(guide_sequence, guide_date)
+    db_connection.execute('delete from epg')
+    db_connection.commit()
+    program_list = build_guide_file()
     db_connection.executemany('insert into epg (StartTime, EndTime, Channel, Title, SubTitle, Desc, Icon, Genre) values (?,?,?,?,?,?,?,?)', program_list)
     db_connection.commit()
+    db_connection.close()
 
-    #Use Threads HERE !!!
-    program_list = better_guide()
+
+def channel_guide_runner(db_path, channel_ids):
+    xbmc.log('Channel ids ('+str(len(channel_ids))+') '+str(channel_ids))
+    db_connection = sqlite3.connect(db_path)
+    program_list = better_guide(channel_ids)
     db_connection.executemany('replace into epg (StartTime, EndTime, Channel, Title, SubTitle, Desc, Icon, Genre) values (?,?,?,?,?,?,?,?)', program_list)
     db_connection.commit()
     db_connection.close()
 
 
-def build_guide_file(guide_sequence, guide_date):
+def build_guide_file():
     channel_ids = PS_VUE_ADDON.getSetting('channelIDs')
 
     url = 'https://epg-service.totsuko.tv/epg_service_sony/service/v2/airings'
@@ -119,8 +127,8 @@ def build_epg_channel(program):
     return start_time, stop_time, channel_id, title, sub_title, desc, icon, genre
 
 
-def better_guide():
-    channel_ids = PS_VUE_ADDON.getSetting('channelIDs').split(',')
+def better_guide(channel_ids):
+    #channel_ids = PS_VUE_ADDON.getSetting('channelIDs').split(',')
     programs_list = []
     for channel in channel_ids:
         json_source = get_json(EPG_URL + '/timeline/live/' + channel + '/watch_history_size/0/coming_up_size/50')
@@ -231,57 +239,61 @@ class BuildGuide(threading.Thread):
 
         #while self.keep_running:
         while not self.monitor.abortRequested():
-            now = datetime.utcnow()
+            #now = datetime.utcnow()
 
             #today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
-            today_timestamp = datetime.now().strftime('%Y%m%d')
-            if not self.up_to_date:
-                if VERBOSE:
-                    xbmc.log('BuildGuide: Erasing stale files....')
-                #erase_stale_files(self.guide_path, today_timestamp)
-                #erase_stale_files(self.guide_path, today_timestamp)
+            #today_timestamp = datetime.now().strftime('%Y%m%d')
+            #if not self.up_to_date:
+            #if VERBOSE:
+            #xbmc.log('BuildGuide: Erasing stale files....')
+            #erase_stale_files(self.guide_path, today_timestamp)
+            #erase_stale_files(self.guide_path, today_timestamp)
 
-                if VERBOSE:
-                    xbmc.log('BuildGuide: Looping through guide days....')
-                for guide_day in range(0, self.guide_days):
-                    guide_date = now + timedelta(days=guide_day)
-                    #guide_timestamp = str(guide_date.year) + str(guide_date.month).zfill(2) + str(guide_date.day).zfill(2)
+            if VERBOSE:
+                xbmc.log('BuildGuide: Looping through guide days....')
+            #for guide_day in range(0, self.guide_days):
+            #guide_date = now + timedelta(days=guide_day)
+            #guide_timestamp = str(guide_date.year) + str(guide_date.month).zfill(2) + str(guide_date.day).zfill(2)
 
-                    self.guide_thread_1 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(guide_date, '1', self.db_path))
-                    """
-                    self.guide_thread_2 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(guide_date, '2', self.db_path))
-                    self.guide_thread_3 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(guide_date, '3', self.db_path))
-                    self.guide_thread_4 = threading.Thread(name='GuideThread',
-                                                           target=guide_runner(guide_date, '4', self.db_path))
-                    
+            # Build main guide longer w/ less info
+            self.guide_thread_1 = threading.Thread(name='GuideThread',
+                                                   target=main_guide_runner(self.db_path))
+
+            while self.guide_thread_1.isAlive():
+                xbmc.log('BuildGuide: Active threads remain, waiting 5 seconds')
+                if self.monitor.waitForAbort(5):
+                    break
+
+            # Build short guide with more info
+            channel_ids = PS_VUE_ADDON.getSetting('channelIDs').split(',')
+            third = int(math.ceil(len(channel_ids) / 3))
+            self.guide_thread_2 = threading.Thread(name='GuideThread',
+                                                   target=channel_guide_runner(self.db_path,
+                                                                               channel_ids[:third]))
+            self.guide_thread_3 = threading.Thread(name='GuideThread',
+                                                   target=channel_guide_runner(self.db_path, channel_ids[
+                                                                                             third:third + third]))
+            self.guide_thread_4 = threading.Thread(name='GuideThread',
+                                                   target=channel_guide_runner(self.db_path,
+                                                                               channel_ids[third + third:]))
+
+            xbmc.log('BuildChannelGuide: before loop')
+            thread_alive = True
+            while thread_alive:
+                thread_alive = False
+                if self.guide_thread_2.isAlive() or self.guide_thread_3.isAlive() or self.guide_thread_4.isAlive():
                     thread_alive = True
-                    while thread_alive:
-                        thread_alive = False
-                    
-                        if self.guide_thread_1.isAlive() or self.guide_thread_2.isAlive() or self.guide_thread_3.isAlive() \
-                                or self.guide_thread_4.isAlive():                    
-                        if VERBOSE:
-                            xbmc.log('BuildGuide: Active threads remain, waiting 5 seconds')
-                    """
+                    if VERBOSE:
+                        xbmc.log('BuildChannelGuide: Active threads remain, waiting 5 seconds')
 
-                if VERBOSE:
-                    xbmc.log('BuildGuide: Guide up to date, going idle')
+                if self.monitor.waitForAbort(5):
+                    break
 
-                self.up_to_date = True
+            xbmc.log('BuildChannelGuide: after loop')
+            build_master_file(self.db_path, self.guide_path)
 
-                #now = datetime.now()
-                #today_timestamp = str(now.year) + str(now.month).zfill(2) + str(now.day).zfill(2)
-                #if not xbmcvfs.exists(os.path.join(self.guide_path, 'epg_' + today_timestamp + '_master.xml')):
-                build_master_file(self.db_path, self.guide_path)
-
-            #if now.minute == 0:
             if self.monitor.waitForAbort(3600):
                 break
-
-            self.up_to_date = False
 
     def stop(self):
         if VERBOSE:
