@@ -1,30 +1,8 @@
-import threading
-import xbmc, xbmcgui, xbmcaddon
-import requests, urllib
-import cookielib
-import os
-import sys
-import re
 import socket
 from SocketServer import ThreadingMixIn
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from urlparse import parse_qs
-ADDON = xbmcaddon.Addon()
-PS_VUE_ADDON = xbmcaddon.Addon('plugin.video.psvue')
-ADDON_PATH_PROFILE = xbmc.translatePath(PS_VUE_ADDON.getAddonInfo('profile'))
-UA_ANDROID_TV = 'Mozilla/5.0 (Linux; Android 6.0.1; Hub Build/MHC19J; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/61.0.3163.98 Safari/537.36'
-VERIFY = False
-
-
-def load_cookies():
-    cookie_file = os.path.join(ADDON_PATH_PROFILE, 'cookies.lwp')
-    cj = cookielib.LWPCookieJar()
-    try:
-        cj.load(cookie_file, ignore_discard=True)
-    except:
-        pass
-
-    return cj
+from globals import *
 
 
 def epg_get_stream(url):
@@ -47,15 +25,6 @@ def epg_get_stream(url):
     stream_url = json_source['body']['video']
 
     return stream_url
-
-
-def find(source, start_str, end_str):
-    start = source.find(start_str)
-    end = source.find(end_str, start + len(start_str))
-    if start != -1:
-        return source[start + len(start_str):end]
-    else:
-        return ''
 
 
 class RequestHandler(BaseHTTPRequestHandler):
