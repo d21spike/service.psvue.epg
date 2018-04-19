@@ -1,7 +1,6 @@
 import sqlite3
 import xbmcvfs
 from globals import *
-# import _strptime
 
 
 class Database():
