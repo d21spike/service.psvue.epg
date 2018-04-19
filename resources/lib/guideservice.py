@@ -30,8 +30,6 @@ class BuildGuide(threading.Thread):
 
             while self.guide_thread_1.isAlive():
                 xbmc.log('BuildGuide: Main guide thread active, waiting for finish')
-                # if self.monitor.waitForAbort(5):
-                #     break
 
             # Build short guide with more info
             channel_ids = PS_VUE_ADDON.getSetting('channelIDs').split(',')
